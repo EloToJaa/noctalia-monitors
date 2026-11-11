@@ -9,9 +9,9 @@
 
 local model = require("./model.luau")
 
-local MAP_CELL = 14
-local MAP_MAX_COLS = 34
-local MAP_MAX_ROWS = 8
+local MAP_WIDTH = 480
+local MAP_HEIGHT = 150
+local DRAG_TYPE = "monitor"
 local MAP_COLORS = {
   { fill = "secondary_container", text = "on_secondary_container" },
   { fill = "tertiary_container", text = "on_tertiary_container" },
@@ -227,6 +227,11 @@ local function notice(glyph, text, color)
 end
 
 -- ── Layout map ───────────────────────────────────────────────────────────────
+--
+-- Every monitor is a block: its middle is the drag handle, and a thin strip along
+-- each real edge is a drop zone. Dropping one monitor on another's edge places it
+-- flush there (model.dropOn). The plugin UI has no absolute positioning, so the
+-- map is drawn as vertical bands (model.bands) rather than free-floating boxes.
 
 local function selectOutput(name)
   return function()
@@ -235,85 +240,111 @@ local function selectOutput(name)
   end
 end
 
--- Coarse grid of the desktop: one cell is `unit` logical pixels square and a run
--- of cells owned by the same output becomes one clickable block.
+-- `value` is "<anchor>:<side>"; the payload is the dragged connector.
+function onMonitorDropped(payload, value)
+  local anchor, side = string.match(value, "^(.*):([%a_]+)$")
+  if anchor == nil or drafts[payload] == nil then
+    return
+  end
+  if model.dropOn(drafts, payload, anchor, side) then
+    selected = payload
+    placement[payload] = nil -- re-derived from the new layout
+    copied = false
+  end
+  render()
+end
+
+local function edgeZone(anchor, side, band, props)
+  local zone = {
+    key = `edge-{anchor}-{side}-{band}`,
+    accepts = { DRAG_TYPE },
+    value = `{anchor}:{side}`,
+    onDrop = "onMonitorDropped",
+    fill = "surface_container_low",
+    hitSlop = 6,
+  }
+  for key, value in pairs(props) do
+    zone[key] = value
+  end
+  return ui.dropZone(zone)
+end
+
+local function monitorBlock(item, band, width, height, color)
+  local isSelected = item.name == selected
+  local edge = math.max(4, math.min(12, math.floor(math.min(width, height) / 4)))
+  local fill = isSelected and "primary" or color.fill
+  local textColor = isSelected and "on_primary" or color.text
+
+  local label = {}
+  if item.left and width >= #item.name * 7 + 2 * edge + 8 then
+    table.insert(label, ui.label({ text = item.name, fontSize = 11, color = textColor, fontWeight = "bold" }))
+  end
+  local middle = {}
+  if item.left then
+    table.insert(middle, edgeZone(item.name, "left_of", band, { width = edge }))
+  end
+  table.insert(middle, ui.dragSource({
+    key = `drag-{item.name}-{band}`,
+    dragType = DRAG_TYPE,
+    payload = item.name,
+    flexGrow = 1,
+    align = "center",
+    justify = "center",
+    fill = fill,
+    tooltip = item.name,
+    onClick = selectOutput(item.name),
+  }, label))
+  if item.right then
+    table.insert(middle, edgeZone(item.name, "right_of", band, { width = edge }))
+  end
+
+  local rows = {}
+  if item.top then
+    table.insert(rows, edgeZone(item.name, "above", band, { height = edge }))
+  end
+  table.insert(rows, ui.row({ gap = 0, flexGrow = 1 }, middle))
+  if item.bottom then
+    table.insert(rows, edgeZone(item.name, "below", band, { height = edge }))
+  end
+  return ui.column({ key = `block-{item.name}-{band}`, gap = 0, width = width, height = height }, rows)
+end
+
 local function layoutMap()
-  local bounds = model.bounds(drafts)
-  if bounds.w <= 0 or bounds.h <= 0 then
+  local layout = model.bands(drafts)
+  if layout == nil or layout.bounds.w <= 0 or layout.bounds.h <= 0 then
     return nil
   end
-  local unit = math.max(bounds.w / MAP_MAX_COLS, bounds.h / MAP_MAX_ROWS)
-  local cols = math.max(1, math.ceil(bounds.w / unit))
-  local rows = math.max(1, math.ceil(bounds.h / unit))
+  local scale = math.min(MAP_WIDTH / layout.bounds.w, MAP_HEIGHT / layout.bounds.h)
 
-  local names = {}
   local colorOf = {}
+  local count = 0
   for _, out in ipairs(snapshot.outputs or {}) do
     local draft = drafts[out.name]
     if draft ~= nil and draft.enabled then
-      table.insert(names, out.name)
-      colorOf[out.name] = MAP_COLORS[((#names - 1) % #MAP_COLORS) + 1]
+      colorOf[out.name] = MAP_COLORS[(count % #MAP_COLORS) + 1]
+      count += 1
     end
   end
 
-  local function ownerAt(col, row)
-    local px = bounds.x + (col - 0.5) * unit
-    local py = bounds.y + (row - 0.5) * unit
-    local owner = nil
-    for _, name in ipairs(names) do
-      local r = model.rectOf(drafts, name)
-      if px >= r.x and px < r.x + r.w and py >= r.y and py < r.y + r.h then
-        if owner == nil or name == selected then
-          owner = name
-        end
-      end
-    end
-    return owner
-  end
-
-  -- Row on which each output's name is drawn.
-  local labelRow = {}
-  for _, name in ipairs(names) do
-    local r = model.rectOf(drafts, name)
-    local centre = (r.y + r.h / 2 - bounds.y) / unit
-    labelRow[name] = math.max(1, math.min(rows, math.ceil(centre)))
-  end
-
-  local gridRows = {}
-  for row = 1, rows do
-    local runs = {}
-    local col = 1
-    while col <= cols do
-      local owner = ownerAt(col, row)
-      local last = col
-      while last < cols and ownerAt(last + 1, row) == owner do
-        last += 1
-      end
-      local width = (last - col + 1) * MAP_CELL
-      if owner == nil then
-        table.insert(runs, ui.box({ width = width, height = MAP_CELL, fill = "surface/0" }))
+  local bands = {}
+  for index, band in ipairs(layout.bands) do
+    local width = math.max(2, math.floor((band.x2 - band.x1) * scale + 0.5))
+    local items = {}
+    for _, item in ipairs(band.items) do
+      local height = math.max(2, math.floor((item.y2 - item.y1) * scale + 0.5))
+      if item.kind == "gap" then
+        table.insert(items, ui.box({ height = height, fill = "surface/0" }))
       else
-        local color = owner == selected and { fill = "primary", text = "on_primary" } or colorOf[owner]
-        local children = {}
-        if labelRow[owner] == row and width >= #owner * 7 + 8 then
-          table.insert(children, ui.label({ text = owner, fontSize = 10, color = color.text, fontWeight = "bold" }))
-        end
-        table.insert(runs, ui.row({
-          key = `run-{row}-{col}`,
-          width = width,
-          height = MAP_CELL,
-          fill = color.fill,
-          align = "center",
-          justify = "center",
-          tooltip = owner,
-          onClick = selectOutput(owner),
-        }, children))
+        table.insert(items, monitorBlock(item, index, width, height, colorOf[item.name]))
       end
-      col = last + 1
     end
-    table.insert(gridRows, ui.row({ gap = 0 }, runs))
+    table.insert(bands, ui.column({ gap = 0, width = width }, items))
   end
-  return ui.column({ gap = 0, align = "center" }, gridRows)
+
+  return ui.column({ gap = 6, align = "center" }, {
+    ui.row({ gap = 0, align = "start" }, bands),
+    ui.label({ text = tr("map.hint"), color = "on_surface_variant", fontSize = 11 }),
+  })
 end
 
 local function outputChips()
@@ -762,3 +793,15 @@ noctalia.state.watch("monitors.state", function(value)
     render()
   end
 end)
+
+-- Scriptable drop, the same path as dragging a monitor onto an edge:
+--   noctalia msg plugin elotoja/monitors:panel all drop DP-2 HDMI-A-1:left_of
+function onIpc(event, payload)
+  if event ~= "drop" or type(payload) ~= "string" then
+    return
+  end
+  local name, value = string.match(payload, "^(%S+)%s+(%S+)$")
+  if name ~= nil then
+    onMonitorDropped(name, value)
+  end
+end

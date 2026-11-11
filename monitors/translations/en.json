@@ -33,6 +33,9 @@
     "copy_tooltip": "Copy matching [output.*] sections for the Umbriel config, to make this layout permanent",
     "reset": "Reset"
   },
+  "map": {
+    "hint": "Drag a monitor onto another one's edge to move it."
+  },
   "notify": {
     "apply_failed": "Could not apply monitor settings",
     "revert_failed": "Could not restore the previous monitor settings",
