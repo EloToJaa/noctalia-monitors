@@ -77,7 +77,7 @@ noctalia msg panel-toggle elotoja/monitors:panel
 ```sh
 nix develop      # luau, luau-lsp, wlr-randr, jq, just
 just test        # unit tests
-just deploy      # rsync the plugin to the desktop for a live test
+just deploy      # copy the plugin to ~/.local/share/noctalia/plugins for a live test
 ```
 
 ## License

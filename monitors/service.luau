@@ -267,6 +267,24 @@ noctalia.state.watch("monitors.request", function(value)
   end
 end)
 
+-- Scriptable entry point, also used for testing without the panel:
+--   noctalia msg plugin elotoja/monitors:service all apply '{"DP-1":{"enabled":true,...}}'
+--   noctalia msg plugin elotoja/monitors:service all confirm
+--   noctalia msg plugin elotoja/monitors:service all revert
+function onIpc(event, payload)
+  if event == "apply" then
+    local decoded = noctalia.json.decode(payload or "")
+    if type(decoded) == "table" then
+      apply({ drafts = decoded })
+    end
+  elseif event == "confirm" then
+    pending = nil
+    publish()
+  elseif event == "revert" then
+    revert(false)
+  end
+end
+
 function update()
   startStream()
   if pending == nil then

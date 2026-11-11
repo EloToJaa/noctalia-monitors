@@ -26,7 +26,7 @@ description = "Change monitor position, resolution, refresh rate, scale and rota
 id = "panel"
 entry = "panel.luau"
 width = 560
-height = 720
+height = 800
 placement = "floating"
 position = "center"
 

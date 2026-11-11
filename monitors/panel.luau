@@ -10,7 +10,7 @@
 local model = require("./model.luau")
 
 local MAP_CELL = 14
-local MAP_MAX_COLS = 36
+local MAP_MAX_COLS = 34
 local MAP_MAX_ROWS = 8
 local MAP_COLORS = {
   { fill = "secondary_container", text = "on_secondary_container" },
@@ -291,7 +291,7 @@ local function layoutMap()
       end
       local width = (last - col + 1) * MAP_CELL
       if owner == nil then
-        table.insert(runs, ui.box({ width = width, height = MAP_CELL }))
+        table.insert(runs, ui.box({ width = width, height = MAP_CELL, fill = "surface/0" }))
       else
         local color = owner == selected and { fill = "primary", text = "on_primary" } or colorOf[owner]
         local children = {}
@@ -632,12 +632,12 @@ local function revertBanner(revert)
         }),
       }),
     }),
-    ui.row({ gap = 6 }, {
+    ui.row({ gap = 6, justify = "end" }, {
       ui.button({
         text = tr("revert.keep"),
         glyph = "check",
         variant = "primary",
-        flexGrow = 1,
+        width = 120,
         onClick = function()
           request({ op = "confirm" })
         end,
@@ -646,7 +646,7 @@ local function revertBanner(revert)
         text = tr("revert.revert"),
         glyph = "arrow-back-up",
         variant = "destructive",
-        flexGrow = 1,
+        width = 120,
         onClick = function()
           request({ op = "revert" })
         end,

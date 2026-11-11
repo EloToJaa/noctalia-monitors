@@ -17,7 +17,7 @@ fmt:
 build:
     nix build
 
-# Copy the plugin to the desktop machine's local plugin dir for testing
-deploy host="elotoja@100.112.233.120":
-    ssh {{host}} 'mkdir -p ~/.local/share/noctalia/plugins/monitors'
-    rsync -a --delete monitors/ {{host}}:.local/share/noctalia/plugins/monitors/
+# Copy the plugin into Noctalia's local plugin dir (hot-reloads in the running shell)
+deploy:
+    mkdir -p ~/.local/share/noctalia/plugins/monitors
+    rsync -a --delete monitors/ ~/.local/share/noctalia/plugins/monitors/
