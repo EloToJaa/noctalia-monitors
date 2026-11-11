@@ -19,10 +19,25 @@ version = "0.1.0"
 plugin_api = 45
 author = "elotoja"
 license = "MIT"
-dependencies = ["umbriel", "wlr-randr"]
-tags = ["umbriel", "panel", "display", "utility"]
+dependencies = ["wlr-randr"]
+tags = ["umbriel", "hyprland", "niri", "panel", "display", "utility"]
 icon = "device-desktop"
-description = "Change monitor position, resolution, refresh rate, scale and rotation from a panel."
+description = "Change monitor position, resolution, refresh rate, scale and rotation from a panel (Umbriel, Hyprland, niri)."
+
+# Plugin-level: read by the service. Auto picks Umbriel, Hyprland or niri from the session.
+[[setting]]
+key = "compositor"
+type = "select"
+label_key = "settings.compositor.label"
+description_key = "settings.compositor.description"
+default = "auto"
+options = [
+  { value = "auto", label_key = "settings.compositor.auto" },
+  { value = "umbriel", label_key = "settings.compositor.umbriel" },
+  { value = "hyprland", label_key = "settings.compositor.hyprland" },
+  { value = "niri", label_key = "settings.compositor.niri" },
+  { value = "generic", label_key = "settings.compositor.generic" },
+]
 
 [[widget]]
 id = "bar"

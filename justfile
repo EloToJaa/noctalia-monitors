@@ -1,9 +1,17 @@
 default:
     @just --list
 
-# Unit tests for the pure logic (monitors/model.luau)
+# Unit tests for the pure logic (monitors/model.luau, monitors/backend.luau).
+# The plugin runtime wants `require("./x.luau")`, stock luau wants no extension,
+# so the tests run on a copy with the extension stripped.
 test:
-    luau tests/model_test.luau
+    rm -rf .test-tmp && mkdir -p .test-tmp/monitors .test-tmp/tests
+    cp monitors/model.luau monitors/backend.luau .test-tmp/monitors/
+    sed -i 's|\.luau")|")|' .test-tmp/monitors/*.luau
+    cp tests/*.luau .test-tmp/tests/
+    luau .test-tmp/tests/model_test.luau
+    luau .test-tmp/tests/backend_test.luau
+    rm -rf .test-tmp
 
 # Type/syntax check every entry script
 check:

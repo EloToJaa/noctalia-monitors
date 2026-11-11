@@ -8,6 +8,7 @@
 -- Keep or Revert is shown here until it ends.
 
 local model = require("./model.luau")
+local backend = require("./backend.luau")
 
 local MAP_WIDTH = 480
 local MAP_HEIGHT = 150
@@ -729,16 +730,20 @@ local function footer()
       glyph = copied and "check" or "copy",
       tooltip = tr("footer.copy_tooltip"),
       onClick = function()
-        copied = noctalia.copyToClipboard(model.umbrielConfig(drafts, snapshot.outputs or {}), "text/plain")
+        local render_ = backend.renderer((snapshot.save or {}).file)
+        copied = noctalia.copyToClipboard(render_(drafts, snapshot.outputs or {}), "text/plain")
         render()
       end,
     }),
   })
 end
 
--- Persist the live (confirmed) layout so it survives an Umbriel restart.
+-- Persist the live (confirmed) layout so it survives a compositor restart.
 local function saveRow()
   local save = snapshot.save or {}
+  if save.supported ~= true then
+    return nil
+  end
   local canSave = not hasChanges() and snapshot.revert == nil and snapshot.busy ~= true
   local rows = {
     ui.button({
@@ -753,7 +758,12 @@ local function saveRow()
   }
   local hint = nil
   if save.included ~= true then
-    hint = notice("info-circle", tr("save.not_included", { path = save.path or "" }), "on_surface_variant")
+    local include = string.gsub(save.include or "", "\n", " ")
+    hint = notice("info-circle", tr("save.not_included", {
+      path = save.path or "",
+      include = include,
+      compositor = snapshot.compositorLabel or "",
+    }), "on_surface_variant")
   elseif save.exists == true then
     hint = notice("check", tr("save.auto", { path = save.path or "" }))
   end
@@ -804,7 +814,10 @@ function render()
   end
   table.insert(children, ui.scroll({ flexGrow = 1, gap = 8 }, body))
   table.insert(children, footer())
-  table.insert(children, saveRow())
+  local saving = saveRow()
+  if saving ~= nil then
+    table.insert(children, saving)
+  end
 
   if type(snapshot.error) == "string" and snapshot.error ~= "" then
     table.insert(children, ui.label({ text = snapshot.error, color = "error", fontSize = 11, wrap = true }))

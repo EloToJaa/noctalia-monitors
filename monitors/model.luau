@@ -92,6 +92,42 @@ function M.normalizeAll(rawList)
   return outputs
 end
 
+-- One entry of `wlr-randr --json` (any compositor with wlr-output-management).
+-- Same shape as an Umbriel output apart from the refresh rate, which is in Hz.
+function M.normalizeRandr(raw)
+  local converted = {}
+  for key, value in pairs(raw) do
+    converted[key] = value
+  end
+  converted.modes = {}
+  for _, mode in ipairs(raw.modes or {}) do
+    table.insert(converted.modes, {
+      width = mode.width,
+      height = mode.height,
+      refresh_mhz = M.round((mode.refresh or 0) * 1000),
+      preferred = mode.preferred,
+      current = mode.current,
+    })
+  end
+  return M.normalize(converted)
+end
+
+function M.normalizeAllRandr(rawList)
+  local outputs = {}
+  if type(rawList) ~= "table" then
+    return outputs
+  end
+  for _, raw in ipairs(rawList) do
+    if type(raw) == "table" and type(raw.name) == "string" then
+      table.insert(outputs, M.normalizeRandr(raw))
+    end
+  end
+  table.sort(outputs, function(a, b)
+    return a.name < b.name
+  end)
+  return outputs
+end
+
 -- ── Modes ────────────────────────────────────────────────────────────────────
 
 -- "59.94 Hz", "60 Hz", "144 Hz"
@@ -561,6 +597,116 @@ function M.umbrielConfig(drafts, outputs)
         table.insert(lines, draft.vrr and 'vrr = "always"' or 'vrr = "disabled"')
       end
     end
+    table.insert(blocks, table.concat(lines, "\n"))
+  end
+  return table.concat(blocks, "\n\n") .. "\n"
+end
+
+-- ── Saved layouts for other compositors ──────────────────────────────────────
+--
+-- Hyprland and niri can include extra files, so a saved layout is a small file
+-- they load themselves. Each generator returns the file body for `drafts`.
+
+local HYPRLAND_TRANSFORMS = {
+  ["normal"] = 0,
+  ["90"] = 1,
+  ["180"] = 2,
+  ["270"] = 3,
+  ["flipped"] = 4,
+  ["flipped-90"] = 5,
+  ["flipped-180"] = 6,
+  ["flipped-270"] = 7,
+}
+
+local function sortedNames(drafts)
+  local names = {}
+  for name in pairs(drafts) do
+    table.insert(names, name)
+  end
+  table.sort(names)
+  return names
+end
+
+local function plainNumber(n)
+  return (string.gsub(string.format("%.4f", n), "%.?0+$", ""))
+end
+
+local function hyprlandMode(draft)
+  return string.format("%dx%d@%.2f", draft.w, draft.h, draft.mhz / 1000)
+end
+
+-- Hyprland >= 0.55 reads hyprland.lua; `hl.monitor` takes one table per output.
+function M.hyprlandLua(drafts, outputs)
+  local vrr = M.vrrSet(outputs)
+  local lines = {}
+  for _, name in ipairs(sortedNames(drafts)) do
+    local draft = drafts[name]
+    if not draft.enabled then
+      table.insert(lines, string.format('hl.monitor({ output = "%s", disabled = true })', name))
+    else
+      local fields = {
+        string.format('output = "%s"', name),
+        string.format('mode = "%s"', hyprlandMode(draft)),
+        string.format('position = "%dx%d"', draft.x, draft.y),
+        "scale = " .. plainNumber(draft.scale),
+        "transform = " .. HYPRLAND_TRANSFORMS[draft.transform],
+      }
+      if vrr[name] then
+        table.insert(fields, "vrr = " .. (draft.vrr and 1 or 0))
+      end
+      table.insert(lines, "hl.monitor({ " .. table.concat(fields, ", ") .. " })")
+    end
+  end
+  return table.concat(lines, "\n") .. "\n"
+end
+
+-- Older Hyprland (hyprlang): `monitor = name, mode, position, scale, ...`.
+function M.hyprlandConf(drafts, outputs)
+  local vrr = M.vrrSet(outputs)
+  local lines = {}
+  for _, name in ipairs(sortedNames(drafts)) do
+    local draft = drafts[name]
+    if not draft.enabled then
+      table.insert(lines, `monitor = {name}, disable`)
+    else
+      local line = string.format(
+        "monitor = %s, %s, %dx%d, %s, transform, %d",
+        name,
+        hyprlandMode(draft),
+        draft.x,
+        draft.y,
+        plainNumber(draft.scale),
+        HYPRLAND_TRANSFORMS[draft.transform]
+      )
+      if vrr[name] then
+        line = line .. ", vrr, " .. (draft.vrr and 1 or 0)
+      end
+      table.insert(lines, line)
+    end
+  end
+  return table.concat(lines, "\n") .. "\n"
+end
+
+-- niri: `output "NAME" { ... }`. The refresh rate must match the monitor's
+-- mode to three decimals, which millihertz gives exactly.
+function M.niriKdl(drafts, outputs)
+  local vrr = M.vrrSet(outputs)
+  local blocks = {}
+  for _, name in ipairs(sortedNames(drafts)) do
+    local draft = drafts[name]
+    local lines = { `output "{name}" \{` }
+    if not draft.enabled then
+      table.insert(lines, "    off")
+    else
+      table.insert(lines, string.format('    mode "%dx%d@%.3f"', draft.w, draft.h, draft.mhz / 1000))
+      table.insert(lines, "    scale " .. M.floatText(draft.scale))
+      table.insert(lines, `    transform "{draft.transform}"`)
+      table.insert(lines, string.format("    position x=%d y=%d", draft.x, draft.y))
+      if vrr[name] and draft.vrr then
+        table.insert(lines, "    variable-refresh-rate")
+      end
+    end
+    table.insert(lines, "}")
     table.insert(blocks, table.concat(lines, "\n"))
   end
   return table.concat(blocks, "\n\n") .. "\n"

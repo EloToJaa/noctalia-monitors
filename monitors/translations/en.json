@@ -22,18 +22,18 @@
     "all_disabled": "At least one monitor must stay enabled.",
     "no_randr": "wlr-randr is not installed. It is needed to apply changes.",
     "randr_start": "Could not start wlr-randr.",
-    "stream_closed": "Umbriel connection closed; retrying.",
-    "stream_failed": "Could not start the Umbriel event stream; retrying.",
+    "stream_closed": "Compositor connection closed; retrying.",
+    "stream_failed": "Could not start the compositor event stream; retrying.",
     "timed_out": "wlr-randr did not answer in time."
   },
   "footer": {
     "apply": "Apply",
     "copied": "Copied",
     "copy": "Copy config",
-    "copy_tooltip": "Copy matching [output.*] sections for the Umbriel config, to make this layout permanent",
+    "copy_tooltip": "Copy this layout in the compositor config format",
     "reset": "Reset",
     "save": "Save",
-    "save_tooltip": "Write the current layout to monitors.toml so it survives a restart"
+    "save_tooltip": "Write the current layout to the saved layout file so it survives a restart"
   },
   "identify": {
     "button": "Identify",
@@ -54,7 +54,7 @@
   "panel": {
     "no_monitor": "No monitor selected.",
     "title": "Monitors",
-    "unavailable": "Umbriel is not running, or the umbriel command is not on PATH."
+    "unavailable": "No supported compositor session found, or wlr-randr / the compositor command is not on PATH."
   },
   "revert": {
     "body": "Reverting to the previous settings in {seconds}s unless you keep them.",
@@ -64,7 +64,7 @@
   },
   "save": {
     "auto": "Kept changes are saved to {path}.",
-    "not_included": "Add [include.optional] files = [\"{path}\"] to the Umbriel config so it is loaded."
+    "not_included": "Add `{include}` to the {compositor} config so {path} is loaded."
   },
   "shortcut": {
     "label": "Monitors"
@@ -73,6 +73,15 @@
     "show_count": {
       "description": "Show the number of monitors next to the icon.",
       "label": "Show monitor count"
+    },
+    "compositor": {
+      "label": "Compositor",
+      "description": "Which compositor to manage. Auto detects Umbriel, Hyprland or niri from the session.",
+      "auto": "Auto-detect",
+      "umbriel": "Umbriel",
+      "hyprland": "Hyprland",
+      "niri": "niri",
+      "generic": "Other (wlr-randr only)"
     }
   },
   "side": {

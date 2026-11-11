@@ -3,7 +3,7 @@
 A [Noctalia](https://github.com/noctalia-dev/noctalia-shell) plugin for managing monitors from a panel:
 position, resolution, refresh rate, scale, rotation, variable refresh and enable/disable.
 
-Currently targets the [Umbriel](https://github.com/noctalia-dev/umbriel) compositor only.
+Works with [Umbriel](https://github.com/noctalia-dev/umbriel), Hyprland and niri (any wlroots-style compositor can edit and apply).
 
 > Work in progress. The behaviour is modelled on the native monitor dialog in
 > [noctalia#4330](https://github.com/noctalia-dev/noctalia/pull/4330).
@@ -15,7 +15,7 @@ changing mode, position or scale. It does implement `wlr-output-management`, so 
 applies changes with [`wlr-randr`](https://sr.ht/~emersion/wlr-randr/), as one atomic configuration. After an apply
 the previous layout is kept for a confirm-or-revert countdown, so a bad mode never strands you on a black screen.
 
-`wlr-randr` changes last until Umbriel restarts, so the panel can also **Save** the layout (see below).
+`wlr-randr` changes last until the compositor restarts, so the panel can also **Save** the layout (see below).
 
 ## Layout
 
@@ -108,18 +108,37 @@ MIT
   `wlr-output-management`** (`types/wlr_output_management_v1.c: head_send_state: Assertion 'found' failed`).
   Seen while testing with `umbriel output-create`; real monitors are unaffected so far. Avoid toggling virtual outputs.
 - Applied changes only last until Umbriel restarts unless you **Save** them and include the saved file (next section).
+- Hyprland and niri support is untested on a real session (the author runs Umbriel). The state-reading and file
+  generation paths are unit-tested and were exercised against real `wlr-randr --json` data, but not inside those
+  compositors. Reports welcome.
 
 ## Making a layout permanent
 
-**Save** writes the live layout to `~/.config/umbriel/monitors.toml` (`$XDG_CONFIG_HOME` is honoured). Umbriel
-[includes](https://github.com/noctalia-dev/umbriel/blob/main/docs/user/configuration.md#include) merge tables by key, so
-this sits next to your own `[output.*]` settings (for example `workspaces`). Add this once to your Umbriel config:
+**Save** writes the live layout to a file the compositor can include. Once the file exists, every change you **Keep**
+updates it, and reverted changes are never saved. The panel shows the exact include line until your main config has it.
+**Copy config** copies the same text if you would rather paste it into your own config.
 
-```toml
-[include.optional]
-files = ["~/.config/umbriel/monitors.toml"]
-```
+| Compositor | Saved file                    | Add to your main config                                  |
+| ---------- | ----------------------------- | -------------------------------------------------------- |
+| Umbriel    | `~/.config/umbriel/monitors.toml` | `[include.optional]` / `files = ["~/.config/umbriel/monitors.toml"]` |
+| Hyprland (Lua, `hyprland.lua`) | `~/.config/hypr/monitors.lua` | `pcall(require, "monitors")` |
+| Hyprland (hyprlang, `hyprland.conf`) | `~/.config/hypr/monitors.conf` | `source = ~/.config/hypr/monitors.conf` |
+| niri 26.04+ | `~/.config/niri/monitors.kdl` | `include optional=true "~/.config/niri/monitors.kdl"` |
 
-Once the file exists, every change you **Keep** updates it, and Umbriel reloads it. Reverted changes are never saved.
-The panel shows a hint until the main config includes the file. **Copy config** still copies the same sections if you
-prefer to paste them into your own config.
+`$XDG_CONFIG_HOME` is honoured. Notes:
+
+- Umbriel's includes merge by table key, so the file sits next to your own `[output.*]` settings (such as `workspaces`).
+- Hyprland: the format follows whichever of `hyprland.lua` / `hyprland.conf` exists (Lua wins). `pcall` keeps a missing
+  file from breaking the config. Put the include after any `monitor` rules of your own so the saved layout wins.
+- niri: older versions have no `optional=true`, so use `include "monitors.kdl"` and make sure the file exists (the Nix
+  module's `layoutFiles = ["niri"]` creates an empty one). niri includes are positional: put it after your own
+  `output` blocks.
+- With `programs.noctalia-monitors.layoutFiles = ["umbriel" "hyprland" "niri"]` (any subset) the Home Manager module
+  creates the empty file, so a non-optional include never fails.
+
+## Compositors
+
+The plugin detects the session (Umbriel socket, `HYPRLAND_INSTANCE_SIGNATURE`, `NIRI_SOCKET`) or follows the
+**Compositor** setting under Settings → Plugins. Anything else that implements `wlr-output-management` works for editing
+and applying, without a saved-layout file. Umbriel state is pushed over its event stream; the others are polled through
+`wlr-randr --json` every two seconds.

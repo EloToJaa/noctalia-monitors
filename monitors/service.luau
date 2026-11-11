@@ -1,5 +1,5 @@
 --!nonstrict
--- Monitors service - the only entry that talks to Umbriel and wlr-randr.
+-- Monitors service - the only entry that talks to the compositor and wlr-randr.
 --
 -- Umbriel pushes its output list over the IPC event stream. `umbriel subscribe
 -- outputs` is that stream on stdout, one JSON object per line, so the service
@@ -15,10 +15,11 @@
 --   { op = "apply", drafts = { [connector] = draft } }   apply, start countdown
 --   { op = "confirm" }                                   keep the new layout
 --   { op = "revert" }                                    restore the old layout
---   { op = "save" }                                      write the live layout to monitors.toml
+--   { op = "save" }                                      write the live layout to the compositor's include file
 --   { op = "refresh" }                                   retry a dropped stream
 
 local model = require("./model.luau")
+local backend = require("./backend.luau")
 
 local RECONNECT_INTERVAL_MS = 1000
 local REVERT_SECONDS = 15
@@ -59,27 +60,60 @@ local function revertState()
   return { remaining = math.max(remaining, 0), total = REVERT_SECONDS, names = pending.names }
 end
 
--- Saved layouts live in a file the user's Umbriel config includes:
---   [include.optional]
---   files = ["~/.config/umbriel/monitors.toml"]
-local function umbrielConfigDir()
+-- ── Compositor and saved layout ──────────────────────────────────────────────
+
+local kind = "generic"
+local target = nil -- backend.target(kind): where the layout is saved
+
+local function configHome()
   local xdg = noctalia.getenv("XDG_CONFIG_HOME")
   if xdg ~= nil and xdg ~= "" then
-    return `{xdg}/umbriel`
+    return xdg
   end
-  return "~/.config/umbriel"
+  return "~/.config"
 end
 
-local SAVE_FILE = "monitors.toml"
-local SAVE_HEADER = "# Written by the noctalia-monitors plugin. Included from the main Umbriel config with\n"
-  .. "#   [include.optional]\n#   files = [\"~/.config/umbriel/monitors.toml\"]\n\n"
+local function envSet(name)
+  local value = noctalia.getenv(name)
+  return value ~= nil and value ~= ""
+end
 
-local saveInfo = { path = `{umbrielConfigDir()}/{SAVE_FILE}`, exists = false, included = false, error = nil }
+local saveInfo = { supported = false, exists = false, included = false, error = nil }
 
 local function refreshSaveInfo()
+  if target == nil then
+    saveInfo = { supported = false, exists = false, included = false, error = nil }
+    return
+  end
+  local dir = `{configHome()}/{target.dir}`
+  saveInfo.supported = true
+  saveInfo.path = `{dir}/{target.file}`
+  saveInfo.file = target.file
+  saveInfo.include = target.include
   saveInfo.exists = noctalia.fileExists(saveInfo.path)
-  local main = noctalia.readFile(`{umbrielConfigDir()}/config.toml`)
-  saveInfo.included = main ~= nil and string.find(main, SAVE_FILE, 1, true) ~= nil
+  saveInfo.included = false
+  for _, candidate in ipairs(target.main) do
+    local main = noctalia.readFile(`{dir}/{candidate}`)
+    if main ~= nil and string.find(main, target.pattern) ~= nil then
+      saveInfo.included = true
+    end
+  end
+end
+
+local function resolveKind()
+  local path = socketPath()
+  local probe = {
+    umbriel = path ~= nil and noctalia.fileExists(path) and noctalia.commandExists("umbriel"),
+    hyprland = envSet("HYPRLAND_INSTANCE_SIGNATURE"),
+    niri = envSet("NIRI_SOCKET"),
+  }
+  local setting = noctalia.getConfig("compositor")
+  kind = backend.detect(type(setting) == "string" and setting or "auto", probe)
+  target = backend.target(kind, function(relative)
+    return noctalia.fileExists(`{configHome()}/{relative}`)
+  end)
+  saveInfo.error = nil
+  refreshSaveInfo()
 end
 
 local function publish()
@@ -91,20 +125,22 @@ local function publish()
     randr = noctalia.commandExists("wlr-randr"),
     revert = revertState(),
     save = saveInfo,
+    compositor = kind,
+    compositorLabel = backend.label(kind),
   })
 end
 
 -- Write the live layout, which is the confirmed one, so it survives a restart.
 -- Never called while a change waits for confirmation.
 local function save()
-  if pending ~= nil or #outputs == 0 then
+  if target == nil or pending ~= nil or #outputs == 0 then
     return
   end
   local drafts = model.draftsFrom(outputs)
-  local ok, err = noctalia.mkdirAll(umbrielConfigDir())
+  local ok, err = noctalia.mkdirAll(`{configHome()}/{target.dir}`)
   if ok then
     local tmp = saveInfo.path .. ".tmp"
-    ok, err = noctalia.writeFile(tmp, SAVE_HEADER .. model.umbrielConfig(drafts, outputs))
+    ok, err = noctalia.writeFile(tmp, backend.fileText(target, drafts, outputs))
     if ok then
       ok, err = noctalia.renameFile(tmp, saveInfo.path)
     end
@@ -174,11 +210,85 @@ local function startStream()
   end
 end
 
+-- Compositors without an event stream are polled through wlr-randr. A snapshot
+-- identical to the last one is dropped so the panel does not re-render.
+local POLL_INTERVAL_MS = 2000
+local polling = false
+local lastPollMs = -POLL_INTERVAL_MS
+local lastSnapshot = ""
+
+local function poll()
+  if polling then
+    return
+  end
+  lastPollMs = noctalia.nowMs()
+  if not noctalia.commandExists("wlr-randr") then
+    if streamError == nil then
+      available = false
+      outputs = {}
+      streamError = noctalia.tr("error.no_randr")
+      publish()
+    end
+    return
+  end
+  polling = true
+  local started = noctalia.runAsync({ "wlr-randr", "--json" }, function(result)
+    polling = false
+    if result.exitCode ~= 0 then
+      available = false
+      outputs = {}
+      lastSnapshot = ""
+      streamError = noctalia.string.trim(result.stderr or "")
+      if streamError == "" then
+        streamError = noctalia.tr("error.randr_start")
+      end
+      publish()
+      return
+    end
+    local decoded = noctalia.json.decode(result.stdout or "")
+    if type(decoded) ~= "table" then
+      return
+    end
+    local list = model.normalizeAllRandr(decoded)
+    local encoded = noctalia.json.encode(list) or ""
+    if available and streamError == nil and encoded == lastSnapshot then
+      return
+    end
+    lastSnapshot = encoded
+    outputs = list
+    available = true
+    streamError = nil
+    publish()
+  end, 5000)
+  if not started then
+    polling = false
+  end
+end
+
+-- Pick the compositor while nothing is connected, then keep its source fed.
+local function refreshSource()
+  if not available then
+    local before = kind
+    resolveKind()
+    if before ~= kind then
+      publish()
+    end
+  end
+  if backend.streams(kind) then
+    startStream()
+    return
+  end
+  if noctalia.nowMs() - lastPollMs >= POLL_INTERVAL_MS then
+    poll()
+  end
+end
+
 -- Run one wlr-randr invocation. done(ok, errText) fires once it exits.
 local function runRandr(argv, done)
   busy = true
   publish()
   local started = noctalia.runAsync(argv, function(result)
+    lastPollMs = -POLL_INTERVAL_MS -- re-read the layout on the next tick
     busy = false
     if result.exitCode ~= 0 or result.timedOut then
       local text = noctalia.string.trim(result.stderr or "")
@@ -316,7 +426,7 @@ noctalia.state.watch("monitors.request", function(value)
   if type(value) ~= "table" or type(value.op) ~= "string" then
     return
   end
-  startStream()
+  refreshSource()
   if value.op == "apply" then
     apply(value)
   elseif value.op == "confirm" then
@@ -351,7 +461,7 @@ function onIpc(event, payload)
 end
 
 function update()
-  startStream()
+  refreshSource()
   if pending == nil then
     return
   end
@@ -363,6 +473,11 @@ function update()
 end
 
 noctalia.setUpdateInterval(RECONNECT_INTERVAL_MS)
-refreshSaveInfo()
+resolveKind()
 publish()
-startStream()
+refreshSource()
+
+function onConfigChanged()
+  resolveKind()
+  publish()
+end
