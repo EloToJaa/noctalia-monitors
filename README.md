@@ -44,11 +44,10 @@ inputs.noctalia-monitors = {
 {
   imports = [inputs.noctalia-monitors.homeModules.default];
   programs.noctalia-monitors.enable = true;
-  home.packages = [pkgs.wlr-randr];
 }
 ```
 
-The module adds a `path` plugin source pointing at the package and enables `elotoja/monitors`. Equivalent manual config:
+The module installs `wlr-randr`, adds a `path` plugin source pointing at the package and enables `elotoja/monitors`. Equivalent manual config:
 
 ```toml
 [plugins]

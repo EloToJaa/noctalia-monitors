@@ -25,6 +25,9 @@ in {
 
   # Requires the Noctalia home-manager module (`programs.noctalia.settings`).
   config = lib.mkIf cfg.enable {
+    # The plugin applies changes with wlr-randr.
+    home.packages = [pkgs.wlr-randr];
+
     programs.noctalia.settings.plugins = {
       enabled = ["elotoja/monitors"];
       source = [
