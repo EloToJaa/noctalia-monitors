@@ -1,0 +1,73 @@
+{
+  "align": {
+    "center": "Centered",
+    "end": "End (bottom / right)",
+    "start": "Start (top / left)"
+  },
+  "editor": {
+    "align": "Align",
+    "disabled_hint": "This monitor is turned off. Enable it to configure it.",
+    "enabled": "Enabled",
+    "place": "Place",
+    "position": "Position",
+    "preferred": " (preferred)",
+    "refresh": "Refresh rate",
+    "resolution": "Resolution",
+    "rotation": "Rotation",
+    "scale": "Scale",
+    "vrr": "Variable refresh",
+    "vrr_hint": "Adaptive sync, when the monitor supports it."
+  },
+  "error": {
+    "all_disabled": "At least one monitor must stay enabled.",
+    "no_randr": "wlr-randr is not installed. It is needed to apply changes.",
+    "randr_start": "Could not start wlr-randr.",
+    "stream_closed": "Umbriel connection closed; retrying.",
+    "stream_failed": "Could not start the Umbriel event stream; retrying.",
+    "timed_out": "wlr-randr did not answer in time."
+  },
+  "footer": {
+    "apply": "Apply",
+    "copied": "Copied",
+    "copy": "Copy config",
+    "copy_tooltip": "Copy matching [output.*] sections for the Umbriel config, to make this layout permanent",
+    "reset": "Reset"
+  },
+  "notify": {
+    "apply_failed": "Could not apply monitor settings",
+    "revert_failed": "Could not restore the previous monitor settings",
+    "reverted_body": "The new settings were not confirmed in time.",
+    "reverted_title": "Monitor settings reverted"
+  },
+  "panel": {
+    "no_monitor": "No monitor selected.",
+    "title": "Monitors",
+    "unavailable": "Umbriel is not running, or the umbriel command is not on PATH."
+  },
+  "revert": {
+    "body": "Reverting to the previous settings in {seconds}s unless you keep them.",
+    "keep": "Keep",
+    "revert": "Revert",
+    "title": "Keep these display settings?"
+  },
+  "side": {
+    "above": "Above",
+    "below": "Below",
+    "left_of": "Left of",
+    "right_of": "Right of"
+  },
+  "transform": {
+    "180": "180°",
+    "270": "270°",
+    "90": "90°",
+    "flipped": "Flipped",
+    "flipped-180": "Flipped 180°",
+    "flipped-270": "Flipped 270°",
+    "flipped-90": "Flipped 90°",
+    "normal": "Normal"
+  },
+  "warning": {
+    "disconnected": "Some monitors do not touch. They will be moved next to each other when you apply.",
+    "overlap": "These monitors overlap: {names}."
+  }
+}

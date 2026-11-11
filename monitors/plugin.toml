@@ -1,0 +1,35 @@
+# Monitors - display configuration for the Umbriel compositor.
+#
+# Umbriel pushes the output list (modes, position, scale, transform, ...) over
+# its IPC event stream and has no runtime IPC action to change them. It does
+# implement wlr-output-management, so the service applies changes with
+# `wlr-randr` and keeps the previous layout around for a confirm-or-revert
+# countdown.
+#
+# panel   -> per-monitor editor: enable, resolution, refresh rate, scale,
+#            rotation, position, variable refresh; layout preview
+# service -> `umbriel subscribe outputs` for state, `wlr-randr` for changes,
+#            confirm/revert countdown
+
+id = "elotoja/monitors"
+name = "Monitors"
+version = "0.1.0"
+plugin_api = 45
+author = "elotoja"
+license = "MIT"
+dependencies = ["umbriel", "wlr-randr"]
+tags = ["umbriel", "panel", "display", "utility"]
+icon = "device-desktop"
+description = "Change monitor position, resolution, refresh rate, scale and rotation from a panel."
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 560
+height = 720
+placement = "floating"
+position = "center"
+
+[[service]]
+id = "service"
+entry = "service.luau"
