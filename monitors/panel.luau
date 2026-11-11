@@ -347,6 +347,13 @@ local function layoutMap()
   })
 end
 
+-- Names every monitor on its own screen for a few seconds (identify.luau).
+-- Pressing it again while the overlay is up restarts its timer.
+function identify()
+  noctalia.state.set("monitors.identify", { stamp = noctalia.nowMs() })
+  noctalia.layer.show("identify")
+end
+
 local function outputChips()
   local chips = {}
   for _, out in ipairs(snapshot.outputs or {}) do
@@ -359,7 +366,14 @@ local function outputChips()
       tooltip = out.description,
     }))
   end
-  return ui.row({ gap = 6 }, chips)
+  table.insert(chips, ui.spacer({ flexGrow = 1 }))
+  table.insert(chips, ui.button({
+    text = tr("identify.button"),
+    glyph = "eye",
+    tooltip = tr("identify.tooltip"),
+    onClick = identify,
+  }))
+  return ui.row({ gap = 6, align = "center" }, chips)
 end
 
 -- ── Editor ───────────────────────────────────────────────────────────────────
@@ -796,7 +810,12 @@ end)
 
 -- Scriptable drop, the same path as dragging a monitor onto an edge:
 --   noctalia msg plugin elotoja/monitors:panel all drop DP-2 HDMI-A-1:left_of
+--   noctalia msg plugin elotoja/monitors:panel all identify
 function onIpc(event, payload)
+  if event == "identify" then
+    identify()
+    return
+  end
   if event ~= "drop" or type(payload) ~= "string" then
     return
   end

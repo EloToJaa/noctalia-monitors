@@ -9,6 +9,7 @@
 # bar     -> monitor icon that opens the panel; shows the revert countdown
 # panel   -> per-monitor editor: enable, resolution, refresh rate, scale,
 #            rotation, position, variable refresh; layout preview
+# layer   -> overlay that names each monitor on its own screen (Identify button)
 # service -> `umbriel subscribe outputs` for state, `wlr-randr` for changes,
 #            confirm/revert countdown
 
@@ -45,3 +46,15 @@ position = "center"
 [[service]]
 id = "service"
 entry = "service.luau"
+
+# Names every monitor on its own screen for a few seconds. Lazy: it exists only
+# while shown (the panel's Identify button).
+[[layer]]
+id = "identify"
+entry = "identify.luau"
+layer = "overlay"
+anchors = []
+exclusive_zone = -1
+keyboard = "none"
+click_through = true
+output = "all"

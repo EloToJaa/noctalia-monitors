@@ -33,6 +33,10 @@
     "copy_tooltip": "Copy matching [output.*] sections for the Umbriel config, to make this layout permanent",
     "reset": "Reset"
   },
+  "identify": {
+    "button": "Identify",
+    "tooltip": "Show each monitor's name on its own screen"
+  },
   "map": {
     "hint": "Drag a monitor onto another one's edge to move it."
   },

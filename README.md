@@ -21,7 +21,7 @@ config to make a layout permanent.
 ## Layout
 
 ```
-monitors/     the plugin (id elotoja/monitors): plugin.toml, bar.luau, panel.luau, service.luau, model.luau, translations/
+monitors/     the plugin (id elotoja/monitors): plugin.toml, bar.luau, panel.luau, identify.luau (layer), service.luau, model.luau, translations/
 tests/        unit tests for the pure logic in monitors/model.luau
 nix/          Home Manager module
 flake.nix     packages.default = a Noctalia plugin *source* containing monitors/
@@ -79,10 +79,14 @@ against that edge, monitors in the way are pushed aside, and any gap it leaves i
 (side, anchor, alignment, exact X/Y) below the map fine-tune the result. Nothing changes on screen until you press
 **Apply**.
 
+**Identify:** the button next to the monitor chips shows each monitor's connector name (for example `HDMI-A-1`) and
+resolution on its own screen for a few seconds, so you can tell which is which.
+
 Scripting (also handy for testing without a mouse):
 
 ```sh
 noctalia msg plugin elotoja/monitors:panel all drop DP-2 HDMI-A-1:left_of    # same as the drag
+noctalia msg plugin elotoja/monitors:panel all identify                      # same as the button
 noctalia msg plugin elotoja/monitors:service all apply '{"DP-1":{...}}'      # drafts as JSON
 noctalia msg plugin elotoja/monitors:service all confirm                     # or: revert
 ```
