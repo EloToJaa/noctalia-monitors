@@ -46,7 +46,7 @@ inputs.noctalia-monitors = {
 }
 ```
 
-The module installs `wlr-randr`, adds a `path` plugin source pointing at the package and enables `elotoja/monitors`. When `programs.umbriel.enable` is set it also adds the saved-layout file to `programs.umbriel.settings.include.optional.files` (turn off with `programs.noctalia-monitors.umbriel.include = false`). Equivalent manual config for Noctalia:
+The module installs `wlr-randr`, adds a `path` plugin source pointing at the package and enables `elotoja/monitors`. It never edits your compositor config. With `programs.noctalia-monitors.layoutFiles = ["umbriel"];` it only creates an empty, writable layout file (`~/.config/umbriel/monitors.toml`) so you can include it yourself (see below). Equivalent manual config for Noctalia:
 
 ```toml
 [plugins]
