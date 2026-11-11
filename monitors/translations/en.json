@@ -66,6 +66,9 @@
     "auto": "Kept changes are saved to {path}.",
     "not_included": "Add [include.optional] files = [\"{path}\"] to the Umbriel config so it is loaded."
   },
+  "shortcut": {
+    "label": "Monitors"
+  },
   "settings": {
     "show_count": {
       "description": "Show the number of monitors next to the icon.",

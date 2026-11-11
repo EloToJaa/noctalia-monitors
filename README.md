@@ -70,7 +70,7 @@ Add `https://github.com/EloToJaa/noctalia-monitors` as a git source in **Setting
 noctalia msg panel-toggle elotoja/monitors:panel
 ```
 
-Or add the **Monitors** widget to the bar (Settings → Bar): a monitor icon that opens the panel, with a tooltip of every
+Or add the **Monitors** control-center tile (Settings → Control Center), or the **Monitors** widget to the bar (Settings → Bar): a monitor icon that opens the panel, with a tooltip of every
 output's mode and a countdown while a change waits for confirmation.
 
 **Moving monitors:** in the layout map, drag a monitor by its middle onto the edge of another one. It is placed flush

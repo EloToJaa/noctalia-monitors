@@ -35,6 +35,11 @@ entry = "bar.luau"
   description_key = "settings.show_count.description"
   default = false
 
+# Control-center tile that opens the panel. Add it from Settings -> Control Center.
+[[shortcut]]
+id = "shortcut"
+entry = "shortcut.luau"
+
 [[panel]]
 id = "panel"
 entry = "panel.luau"
