@@ -736,6 +736,33 @@ local function footer()
   })
 end
 
+-- Persist the live (confirmed) layout so it survives an Umbriel restart.
+local function saveRow()
+  local save = snapshot.save or {}
+  local canSave = not hasChanges() and snapshot.revert == nil and snapshot.busy ~= true
+  local rows = {
+    ui.button({
+      text = tr("footer.save"),
+      glyph = "device-floppy",
+      tooltip = tr("footer.save_tooltip"),
+      enabled = canSave,
+      onClick = function()
+        request({ op = "save" })
+      end,
+    }),
+  }
+  local hint = nil
+  if save.included ~= true then
+    hint = notice("info-circle", tr("save.not_included", { path = save.path or "" }), "on_surface_variant")
+  elseif save.exists == true then
+    hint = notice("check", tr("save.auto", { path = save.path or "" }))
+  end
+  if hint ~= nil then
+    table.insert(rows, ui.column({ flexGrow = 1 }, { hint }))
+  end
+  return ui.row({ gap = 8, align = "center" }, rows)
+end
+
 function render()
   local headerContent = {
     ui.glyph({ name = "device-desktop", size = 20, color = "primary" }),
@@ -777,6 +804,7 @@ function render()
   end
   table.insert(children, ui.scroll({ flexGrow = 1, gap = 8 }, body))
   table.insert(children, footer())
+  table.insert(children, saveRow())
 
   if type(snapshot.error) == "string" and snapshot.error ~= "" then
     table.insert(children, ui.label({ text = snapshot.error, color = "error", fontSize = 11, wrap = true }))

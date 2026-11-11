@@ -31,7 +31,9 @@
     "copied": "Copied",
     "copy": "Copy config",
     "copy_tooltip": "Copy matching [output.*] sections for the Umbriel config, to make this layout permanent",
-    "reset": "Reset"
+    "reset": "Reset",
+    "save": "Save",
+    "save_tooltip": "Write the current layout to monitors.toml so it survives a restart"
   },
   "identify": {
     "button": "Identify",
@@ -44,7 +46,10 @@
     "apply_failed": "Could not apply monitor settings",
     "revert_failed": "Could not restore the previous monitor settings",
     "reverted_body": "The new settings were not confirmed in time.",
-    "reverted_title": "Monitor settings reverted"
+    "reverted_title": "Monitor settings reverted",
+    "save_failed": "Could not save monitor settings",
+    "saved_body": "Written to {path}.",
+    "saved_title": "Monitor settings saved"
   },
   "panel": {
     "no_monitor": "No monitor selected.",
@@ -56,6 +61,10 @@
     "keep": "Keep",
     "revert": "Revert",
     "title": "Keep these display settings?"
+  },
+  "save": {
+    "auto": "Kept changes are saved to {path}.",
+    "not_included": "Add [include.optional] files = [\"{path}\"] to the Umbriel config so it is loaded."
   },
   "settings": {
     "show_count": {

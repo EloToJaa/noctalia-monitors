@@ -15,6 +15,7 @@
 --   { op = "apply", drafts = { [connector] = draft } }   apply, start countdown
 --   { op = "confirm" }                                   keep the new layout
 --   { op = "revert" }                                    restore the old layout
+--   { op = "save" }                                      write the live layout to monitors.toml
 --   { op = "refresh" }                                   retry a dropped stream
 
 local model = require("./model.luau")
@@ -58,6 +59,29 @@ local function revertState()
   return { remaining = math.max(remaining, 0), total = REVERT_SECONDS, names = pending.names }
 end
 
+-- Saved layouts live in a file the user's Umbriel config includes:
+--   [include.optional]
+--   files = ["~/.config/umbriel/monitors.toml"]
+local function umbrielConfigDir()
+  local xdg = noctalia.getenv("XDG_CONFIG_HOME")
+  if xdg ~= nil and xdg ~= "" then
+    return `{xdg}/umbriel`
+  end
+  return "~/.config/umbriel"
+end
+
+local SAVE_FILE = "monitors.toml"
+local SAVE_HEADER = "# Written by the noctalia-monitors plugin. Included from the main Umbriel config with\n"
+  .. "#   [include.optional]\n#   files = [\"~/.config/umbriel/monitors.toml\"]\n\n"
+
+local saveInfo = { path = `{umbrielConfigDir()}/{SAVE_FILE}`, exists = false, included = false, error = nil }
+
+local function refreshSaveInfo()
+  saveInfo.exists = noctalia.fileExists(saveInfo.path)
+  local main = noctalia.readFile(`{umbrielConfigDir()}/config.toml`)
+  saveInfo.included = main ~= nil and string.find(main, SAVE_FILE, 1, true) ~= nil
+end
+
 local function publish()
   noctalia.state.set("monitors.state", {
     available = available,
@@ -66,7 +90,45 @@ local function publish()
     busy = busy,
     randr = noctalia.commandExists("wlr-randr"),
     revert = revertState(),
+    save = saveInfo,
   })
+end
+
+-- Write the live layout, which is the confirmed one, so it survives a restart.
+-- Never called while a change waits for confirmation.
+local function save()
+  if pending ~= nil or #outputs == 0 then
+    return
+  end
+  local drafts = model.draftsFrom(outputs)
+  local ok, err = noctalia.mkdirAll(umbrielConfigDir())
+  if ok then
+    local tmp = saveInfo.path .. ".tmp"
+    ok, err = noctalia.writeFile(tmp, SAVE_HEADER .. model.umbrielConfig(drafts, outputs))
+    if ok then
+      ok, err = noctalia.renameFile(tmp, saveInfo.path)
+    end
+  end
+  if not ok then
+    saveInfo.error = err or "write failed"
+    noctalia.notifyError(noctalia.tr("notify.save_failed"), saveInfo.error)
+  else
+    saveInfo.error = nil
+    noctalia.notify(noctalia.tr("notify.saved_title"), noctalia.tr("notify.saved_body", { path = saveInfo.path }))
+  end
+  refreshSaveInfo()
+  publish()
+end
+
+-- Keeping a change updates the file when the user has opted in by saving once.
+local function confirm()
+  pending = nil
+  refreshSaveInfo()
+  if saveInfo.exists then
+    save()
+    return
+  end
+  publish()
 end
 
 local function onLine(line)
@@ -258,11 +320,13 @@ noctalia.state.watch("monitors.request", function(value)
   if value.op == "apply" then
     apply(value)
   elseif value.op == "confirm" then
-    pending = nil
-    publish()
+    confirm()
+  elseif value.op == "save" then
+    save()
   elseif value.op == "revert" then
     revert(false)
   elseif value.op == "refresh" then
+    refreshSaveInfo()
     publish()
   end
 end)
@@ -278,8 +342,9 @@ function onIpc(event, payload)
       apply({ drafts = decoded })
     end
   elseif event == "confirm" then
-    pending = nil
-    publish()
+    confirm()
+  elseif event == "save" then
+    save()
   elseif event == "revert" then
     revert(false)
   end
@@ -298,5 +363,6 @@ function update()
 end
 
 noctalia.setUpdateInterval(RECONNECT_INTERVAL_MS)
+refreshSaveInfo()
 publish()
 startStream()

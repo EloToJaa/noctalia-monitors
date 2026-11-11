@@ -15,8 +15,7 @@ changing mode, position or scale. It does implement `wlr-output-management`, so 
 applies changes with [`wlr-randr`](https://sr.ht/~emersion/wlr-randr/), as one atomic configuration. After an apply
 the previous layout is kept for a confirm-or-revert countdown, so a bad mode never strands you on a black screen.
 
-`wlr-randr` changes last until Umbriel restarts. The panel can copy matching `[output.*]` sections for your Umbriel
-config to make a layout permanent.
+`wlr-randr` changes last until Umbriel restarts, so the panel can also **Save** the layout (see below).
 
 ## Layout
 
@@ -108,5 +107,19 @@ MIT
 - **Umbriel 0.1.0 can abort when a headless (virtual) output is disabled and re-enabled through
   `wlr-output-management`** (`types/wlr_output_management_v1.c: head_send_state: Assertion 'found' failed`).
   Seen while testing with `umbriel output-create`; real monitors are unaffected so far. Avoid toggling virtual outputs.
-- Mode, position and scale changes made here do not survive an Umbriel restart. Use **Copy config** and paste the
-  result into your Umbriel config.
+- Applied changes only last until Umbriel restarts unless you **Save** them and include the saved file (next section).
+
+## Making a layout permanent
+
+**Save** writes the live layout to `~/.config/umbriel/monitors.toml` (`$XDG_CONFIG_HOME` is honoured). Umbriel
+[includes](https://github.com/noctalia-dev/umbriel/blob/main/docs/user/configuration.md#include) merge tables by key, so
+this sits next to your own `[output.*]` settings (for example `workspaces`). Add this once to your Umbriel config:
+
+```toml
+[include.optional]
+files = ["~/.config/umbriel/monitors.toml"]
+```
+
+Once the file exists, every change you **Keep** updates it, and Umbriel reloads it. Reverted changes are never saved.
+The panel shows a hint until the main config includes the file. **Copy config** still copies the same sections if you
+prefer to paste them into your own config.
