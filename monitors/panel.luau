@@ -470,8 +470,9 @@ local function editor()
     ui.toggle({
       key = `enabled-{out.name}`,
       checked = draft.enabled,
-      -- The last enabled output cannot be switched off.
-      enabled = not draft.enabled or enabledCount() > 1,
+      -- The last enabled output cannot be switched off, and a disabled output
+      -- with no advertised mode has nothing to be switched on with.
+      enabled = draft.enabled and enabledCount() > 1 or not draft.enabled and #out.modes > 0,
       onChange = function(value)
         editSelected(function(d)
           d.enabled = value == "true"

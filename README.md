@@ -42,7 +42,7 @@ inputs.noctalia-monitors = {
 ```nix
 # home-manager config (needs the Noctalia Home Manager module)
 {
-  imports = [inputs.noctalia-monitors.homeManagerModules.default];
+  imports = [inputs.noctalia-monitors.homeModules.default];
   programs.noctalia-monitors.enable = true;
   home.packages = [pkgs.wlr-randr];
 }
@@ -83,3 +83,11 @@ just deploy      # copy the plugin to ~/.local/share/noctalia/plugins for a live
 ## License
 
 MIT
+
+## Known issues
+
+- **Umbriel 0.1.0 can abort when a headless (virtual) output is disabled and re-enabled through
+  `wlr-output-management`** (`types/wlr_output_management_v1.c: head_send_state: Assertion 'found' failed`).
+  Seen while testing with `umbriel output-create`; real monitors are unaffected so far. Avoid toggling virtual outputs.
+- Mode, position and scale changes made here do not survive an Umbriel restart. Use **Copy config** and paste the
+  result into your Umbriel config.

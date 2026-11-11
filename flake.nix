@@ -61,6 +61,6 @@
     // {
       # Home Manager module: registers the plugin source and enables the plugin
       # in the Noctalia config. See README for usage.
-      homeManagerModules.default = import ./nix/home-manager.nix self;
+      homeModules.default = import ./nix/home-manager.nix self;
     };
 }
