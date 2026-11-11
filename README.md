@@ -21,7 +21,7 @@ config to make a layout permanent.
 ## Layout
 
 ```
-monitors/     the plugin (id elotoja/monitors): plugin.toml, panel.luau, service.luau, model.luau, translations/
+monitors/     the plugin (id elotoja/monitors): plugin.toml, bar.luau, panel.luau, service.luau, model.luau, translations/
 tests/        unit tests for the pure logic in monitors/model.luau
 nix/          Home Manager module
 flake.nix     packages.default = a Noctalia plugin *source* containing monitors/

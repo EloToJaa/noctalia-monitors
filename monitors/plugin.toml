@@ -6,6 +6,7 @@
 # `wlr-randr` and keeps the previous layout around for a confirm-or-revert
 # countdown.
 #
+# bar     -> monitor icon that opens the panel; shows the revert countdown
 # panel   -> per-monitor editor: enable, resolution, refresh rate, scale,
 #            rotation, position, variable refresh; layout preview
 # service -> `umbriel subscribe outputs` for state, `wlr-randr` for changes,
@@ -21,6 +22,17 @@ dependencies = ["umbriel", "wlr-randr"]
 tags = ["umbriel", "panel", "display", "utility"]
 icon = "device-desktop"
 description = "Change monitor position, resolution, refresh rate, scale and rotation from a panel."
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "show_count"
+  type = "bool"
+  label_key = "settings.show_count.label"
+  description_key = "settings.show_count.description"
+  default = false
 
 [[panel]]
 id = "panel"

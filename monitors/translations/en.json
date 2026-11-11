@@ -50,11 +50,20 @@
     "revert": "Revert",
     "title": "Keep these display settings?"
   },
+  "settings": {
+    "show_count": {
+      "description": "Show the number of monitors next to the icon.",
+      "label": "Show monitor count"
+    }
+  },
   "side": {
     "above": "Above",
     "below": "Below",
     "left_of": "Left of",
     "right_of": "Right of"
+  },
+  "tooltip": {
+    "off": "Off"
   },
   "transform": {
     "180": "180°",
