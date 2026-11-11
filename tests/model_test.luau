@@ -97,6 +97,49 @@ eq("no changes", #model.changedNames(base, edited), 0)
 edited["DP-1"].scale = 1.5
 eq("one change", #model.changedNames(base, edited), 1)
 
+
+-- drag and drop
+local function row3()
+  local list = model.normalizeAll({ raw("A", 1920, 1080, 0, 0), raw("B", 1920, 1080, 1920, 0), raw("C", 1920, 1080, 3840, 0) })
+  return model.draftsFrom(list)
+end
+
+local d = row3()
+check("drop A right of C", model.dropOn(d, "A", "C", "right_of"))
+eq("A x", d["A"].x, 5760)
+check("still connected", model.isConnected(d))
+eq("no overlap", #model.overlapping(d), 0)
+-- B and C keep their positions: the layout need not start at the origin
+eq("B stays", d["B"].x, 1920)
+eq("C stays", d["C"].x, 3840)
+
+d = row3()
+model.dropOn(d, "C", "A", "right_of") -- insert C between A and B: B is pushed right
+eq("C inserted x", d["C"].x, 1920)
+eq("B pushed", d["B"].x, 3840)
+eq("no overlap after insert", #model.overlapping(d), 0)
+
+d = row3()
+model.dropOn(d, "C", "A", "above")
+eq("C above y", d["C"].y, -1080)
+eq("C above x", d["C"].x, 0)
+check("above connected", model.isConnected(d))
+
+d = row3()
+check("self drop ignored", not model.dropOn(d, "A", "A", "right_of"))
+check("bad side ignored", not model.dropOn(d, "A", "B", "diagonal"))
+
+-- preview bands
+local b = model.bands(row3())
+eq("three bands", #b.bands, 3)
+eq("band items", #b.bands[1].items, 1)
+check("band monitor", b.bands[1].items[1].name == "A" and b.bands[1].items[1].left and b.bands[1].items[1].right)
+
+d = model.draftsFrom(model.normalizeAll({ raw("A", 1920, 1080, 0, 0), raw("B", 1280, 720, 1920, 360) }))
+b = model.bands(d)
+eq("offset band 2 has gap", b.bands[2].items[1].kind, "gap")
+eq("offset band 2 monitor", b.bands[2].items[2].name, "B")
+
 local cfg = model.umbrielConfig(model.draftsFrom(outs), outs)
 check("config has section", cfg:find("[output.DP-1]", 1, true) ~= nil)
 check("config mode", cfg:find("mode = \"1920x1080@60\"", 1, true) ~= nil)

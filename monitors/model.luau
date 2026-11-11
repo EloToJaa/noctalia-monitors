@@ -566,4 +566,132 @@ function M.umbrielConfig(drafts, outputs)
   return table.concat(blocks, "\n\n") .. "\n"
 end
 
+-- ── Drag and drop ────────────────────────────────────────────────────────────
+
+-- Drop `name` against one edge of `anchor`. The dragged output keeps its offset
+-- along the shared edge when it still overlaps the anchor there, otherwise it
+-- lines up with the anchor's start. Outputs in the way are pushed along the
+-- drop direction, and a gap left behind by the move is closed. Returns false
+-- when nothing changed.
+function M.dropOn(drafts, name, anchor, side)
+  local target = drafts[name]
+  local base = drafts[anchor]
+  if name == anchor or target == nil or base == nil or not target.enabled or not base.enabled then
+    return false
+  end
+  if table.find(M.SIDES, side) == nil then
+    return false
+  end
+
+  local oldX, oldY = target.x, target.y
+  M.place(drafts, name, anchor, side, "start")
+
+  local tw, th = M.logicalSize(target)
+  local bw, bh = M.logicalSize(base)
+  if side == "right_of" or side == "left_of" then
+    if oldY > base.y - th and oldY < base.y + bh then
+      target.y = oldY
+    end
+  elseif oldX > base.x - tw and oldX < base.x + bw then
+    target.x = oldX
+  end
+
+  -- Push whatever the move landed on, and whatever that lands on in turn.
+  local queue = { name }
+  local guard = 0
+  while #queue > 0 and guard < 32 do
+    guard += 1
+    local mover = table.remove(queue, 1)
+    local m = rect(drafts, mover)
+    for _, other in ipairs(enabledNames(drafts)) do
+      if other ~= mover and other ~= name and other ~= anchor and M.overlaps(m, rect(drafts, other)) then
+        local o = drafts[other]
+        local ow, oh = M.logicalSize(o)
+        if side == "right_of" then
+          o.x = m.x + m.w
+        elseif side == "left_of" then
+          o.x = m.x - ow
+        elseif side == "below" then
+          o.y = m.y + m.h
+        else
+          o.y = m.y - oh
+        end
+        table.insert(queue, other)
+      end
+    end
+  end
+
+  M.snapDisconnected(drafts)
+  return true
+end
+
+-- The layout as vertical bands for the preview: the desktop is cut at every
+-- output's left and right edge, and each band lists, top to bottom, the gaps and
+-- the output slices in it. An output spanning several bands appears once per
+-- band; `left`/`right`/`top`/`bottom` mark which slices own a real edge of it.
+function M.bands(drafts)
+  local names = enabledNames(drafts)
+  if #names == 0 then
+    return nil
+  end
+  local bounds = M.bounds(drafts)
+  local seen, xs = {}, {}
+  for _, name in ipairs(names) do
+    local r = rect(drafts, name)
+    for _, x in ipairs({ r.x, r.x + r.w }) do
+      if not seen[x] then
+        seen[x] = true
+        table.insert(xs, x)
+      end
+    end
+  end
+  table.sort(xs)
+
+  local bands = {}
+  for i = 1, #xs - 1 do
+    local x1, x2 = xs[i], xs[i + 1]
+    local covering = {}
+    for _, name in ipairs(names) do
+      local r = rect(drafts, name)
+      if r.x <= x1 and r.x + r.w >= x2 then
+        table.insert(covering, { name = name, r = r })
+      end
+    end
+    table.sort(covering, function(a, b)
+      if a.r.y ~= b.r.y then
+        return a.r.y < b.r.y
+      end
+      return a.name < b.name
+    end)
+
+    local items = {}
+    local cursor = bounds.y
+    for _, entry in ipairs(covering) do
+      local y1 = math.max(cursor, entry.r.y)
+      local y2 = entry.r.y + entry.r.h
+      if y2 > y1 then
+        if y1 > cursor then
+          table.insert(items, { kind = "gap", y1 = cursor, y2 = y1 })
+        end
+        table.insert(items, {
+          kind = "monitor",
+          name = entry.name,
+          y1 = y1,
+          y2 = y2,
+          left = entry.r.x == x1,
+          right = entry.r.x + entry.r.w == x2,
+          top = y1 == entry.r.y,
+          bottom = y2 == entry.r.y + entry.r.h,
+        })
+        cursor = y2
+      end
+    end
+    if cursor < bounds.y + bounds.h then
+      table.insert(items, { kind = "gap", y1 = cursor, y2 = bounds.y + bounds.h })
+    end
+    table.insert(bands, { x1 = x1, x2 = x2, items = items })
+  end
+  return { bounds = bounds, bands = bands }
+end
+
 return M
